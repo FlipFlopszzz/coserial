@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Serial Bridge Monitor</title>
+
+<style>
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+
+  background: #1e1e1e; color: #d4d4d4;
+
+  font-family: 'Segoe UI', system-ui, sans-serif;
+
+  display: flex; flex-direction: column;
+
+}
+
+/* ── Scrollbar ──────────────────────────────────── */
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+
+::-webkit-scrollbar-track { background: #252526; }
+
+::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+
+::-webkit-scrollbar-thumb:hover { background: #555; }
+
+::-webkit-scrollbar-corner { background: #252526; }
+
+
+
+/* ── Top bar ───────────────────────────────────── */
+
+#top-bar {
+
+  display: flex; align-items: stretch; gap: 8px;
+
+  padding: 8px 12px 0; background: #252526;
+
+  flex-shrink: 0;
+
+}
+
+#top-left { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; width: 200px; flex-shrink: 0; }
+
+#status-dot {
+
+  width: 10px; height: 10px; border-radius: 50%;
+
+  background: #666; flex-shrink: 0; transition: background .3s;
+
+}
+
+#status-dot.connected { background: #4caf50; }
+
+#status-dot.disconnected { background: #f44336; }
+
+#status-dot.connecting { background: #ff9800; animation: pulse 1s infinite; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+#status-text { font-size: 12px; color: #888; min-width: 70px; }
+
+#btn-sidebar { flex-shrink: 0; cursor: pointer; padding: 2px 6px; background: none; border: none; color: #888; border-radius: 3px; line-height: 1; display: flex; align-items: center; }
+#btn-sidebar:hover { color: #d4d4d4; background: #3c3c3c; }
+#btn-sidebar svg { width: 16px; height: 16px; }
+
+/* ── Tabs ──────────────────────────────────────── */
+
+#tabs-wrap { flex: 1; display: flex; overflow: hidden; align-self: stretch; }
+#tabs { display: flex; gap: 2px; overflow-x: auto; overflow-y: hidden; align-items: stretch; flex: 1; }
+.tab { display: flex; align-items: center; gap: 4px; padding: 0 8px 0 16px; cursor: pointer;
+  background: #2d2d2d; border: 1px solid #3c3c3c; border-bottom: 1px solid #3c3c3c;
+  border-radius: 4px 4px 0 0; font-size: 14px; color: #888; white-space: nowrap; user-select: none; margin-bottom: -1px; }
+.tab:hover { background: #333; color: #aaa; }
+.tab.active { background: #1e1e1e; color: #d4d4d4; border-bottom-color: #1e1e1e; }
+.tab .close { font-size: 14px; color: #444; margin-left: 2px; line-height: 1; width: 16px; text-align: center; visibility: hidden; }
+.tab:hover .close { visibility: visible; color: #666; }
+.tab .close:hover { color: #f44336; }
+.tab-add { display: flex; align-items: center; padding: 0 8px; cursor: pointer; font-size: 14px; color: #888; user-select: none;
+  background: #2d2d2d; border: 1px solid #3c3c3c; border-radius: 4px 4px 0 0; border-bottom: 1px solid #3c3c3c; margin-bottom: -1px; }
+.tab-add:hover { color: #d4d4d4; background: #333; }
+
+.tool-btn {
+
+  background: #0e639c; color: #fff; border: none;
+
+  padding: 4px 12px; border-radius: 3px; cursor: pointer; font-size: 12px;
+
+}
+
+.tool-btn:hover { background: #1177bb; }
+
+
+
+/* ── Middle: sidebar + log ─────────────────────── */
+
+#middle { flex: 1; display: flex; overflow: hidden; border-top: 1px solid #3c3c3c; }
+
+
+
+/* ── Left sidebar ──────────────────────────────── */
+
+#sidebar {
+
+  width: 220px; flex-shrink: 0; overflow-y: auto;
+
+  background: #252526; border-right: 1px solid #3c3c3c;
+
+  padding: 12px; display: flex; flex-direction: column; gap: 18px;
+
+  font-size: 13px;
+
+}
+
+.side-group { display: flex; flex-direction: column; gap: 8px; }
+
+.side-label { font-size: 12px; color: #aaa; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+
+.side-check { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; position: relative; padding-left: 4px; }
+
+.side-check input { display: none; }
+
+.side-check .check-box { 
+
+  width: 16px; height: 16px; flex-shrink: 0;
+
+  border: 1px solid #555; border-radius: 3px;
+
+  background: #3c3c3c; display: flex; align-items: center; justify-content: center;
+
+  transition: background .15s, border-color .15s;
+
+}
+
+.side-check .check-box::after {
+
+  content: ''; width: 5px; height: 9px;
+
+  border: solid #d4d4d4; border-width: 0 2px 2px 0;
+
+  transform: rotate(45deg) scale(0);
+
+  transition: transform .15s;
+
+  position: relative; top: -1px;
+
+}
+
+.side-check input:checked + .check-box { background: #0e639c; border-color: #0e639c; }
+
+.side-check input:checked + .check-box::after { transform: rotate(45deg) scale(1); }
+
+.side-check:hover .check-box { border-color: #0e639c; }
+
+
+#baud-select { background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; padding: 3px 6px; border-radius: 3px; font-size: 13px; width: 100%; outline: none; }
+#baud-select:focus { border-color: #0e639c; }
+
+#port-select {
+  background: #3c3c3c; color: #d4d4d4; border: 1px solid #555;
+  padding: 3px 6px; border-radius: 3px; font-size: 13px; flex: 1; min-width: 0;
+  outline: none;
+}
+#port-select:focus { border-color: #0e639c; }
+
+.serial-select {
+  background: #3c3c3c; color: #d4d4d4; border: 1px solid #555;
+  padding: 3px 6px; border-radius: 3px; font-size: 13px; flex: 1; min-width: 0;
+  outline: none;
+}
+.serial-select:focus { border-color: #0e639c; }
+
+
+
+/* ── Log area ──────────────────────────────────── */
+
+#log-wrap { flex: 1; display: flex; overflow: hidden; }
+
+.log-pane {
+  overflow-y: auto; overflow-x: hidden;
+  padding: 8px 12px; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+  flex: 1;
+}
+
+#log-ascii { display: none; }
+
+#log-wrap.split-lr { flex-direction: row; }
+#log-wrap.split-lr #log-ascii { display: block; border-left: 1px solid #3c3c3c; }
+#log-wrap.split-lr #log, #log-wrap.split-lr #log-ascii { flex: 1; min-width: 0; }
+
+#log-wrap.split-tb { flex-direction: column; }
+#log-wrap.split-tb #log-ascii { display: block; border-top: 1px solid #3c3c3c; }
+#log-wrap.split-tb #log, #log-wrap.split-tb #log-ascii { flex: 1; min-height: 0; }
+
+#log-wrap.no-wrap .log-pane { white-space: nowrap; overflow-x: auto; word-break: normal; }
+
+.log-line { padding: 0; display: flex; align-items: flex-start; }
+
+.log-line .line-num {
+
+  color: #777; font-size: 13px; user-select: none;
+
+  min-width: 44px; text-align: right; padding-right: 10px; flex-shrink: 0;
+
+}
+
+.log-line .line-content { flex: 1; }
+
+.log-line.tx .line-content { color: #4fc3f7; }
+
+.log-line.rx .line-content { color: #aed581; }
+
+.log-line.unknown .line-content { color: #888; }
+
+.log-line .ts { color: #777; font-size: 11px; margin-right: 8px; user-select: none; }
+
+
+
+/* ── Bottom bar ────────────────────────────────── */
+
+#bottom-bar { flex-shrink: 0; background: #252526; border-top: 1px solid #3c3c3c; }
+
+#status-bar {
+
+  padding: 3px 12px; font-size: 12px; color: #aaa; height: 22px;
+
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+
+  display: flex; align-items: center; gap: 12px;
+
+}
+
+#status-bar .sig { font-size: 12px; color: #aaa; }
+
+#input-row { display: flex; align-items: center; padding: 6px 12px; gap: 8px; }
+
+#input-row label { font-size: 12px; color: #888; white-space: nowrap; }
+
+#input {
+
+  flex: 1; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555;
+
+  padding: 6px 10px; border-radius: 3px; font-size: 13px; outline: none; font-family: inherit;
+
+  resize: none; overflow-y: auto; min-height: 31px; max-height: 95px; line-height: 1.4;
+
+}
+
+#input:focus { border-color: #0e639c; }
+
+
+#auto-interval { background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; padding: 6px 10px; border-radius: 3px; font-size: 13px; width: 60px; outline: none; font-family: inherit; }
+
+#auto-interval:focus { border-color: #0e639c; }
+
+#btn-auto.active { background: #a33; }
+
+#btn-auto.active:hover { background: #c44; }
+
+mark { background: #e8c547; color: #1e1e1e; padding: 0 2px; border-radius: 2px; }
+mark.current { background: #f5a623; color: #1e1e1e; outline: 1px solid #e8c547; }
+
+/* ── Log toolbar ────────────────────────────── */
+#log-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+#log-toolbar { display: flex; align-items: center; gap: 2px; padding: 4px 8px; background: #252526; border-bottom: 1px solid #3c3c3c; flex-shrink: 0; }
+.toolbar-btn { flex-shrink: 0; cursor: pointer; padding: 2px 6px; background: none; border: none; color: #888; border-radius: 3px; line-height: 1; display: flex; align-items: center; }
+.toolbar-btn:hover { color: #d4d4d4; background: #3c3c3c; }
+.toolbar-btn svg { width: 16px; height: 16px; }
+
+/* ── Search bar (VSCode-style) ──────────────── */
+#search-bar { position: absolute; top: 0; right: 12px; z-index: 10; display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: #252526; border: 1px solid #3c3c3c; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+#search-bar.hidden { display: none; }
+#search-input { width: 200px; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; padding: 2px 6px; border-radius: 2px; font-size: 13px; outline: none; font-family: inherit; }
+#search-input:focus { border-color: #0e639c; }
+#search-count { font-size: 12px; color: #888; min-width: 40px; text-align: center; user-select: none; }
+.search-nav-btn { background: none; border: none; color: #888; padding: 2px 4px; border-radius: 2px; cursor: pointer; line-height: 1; display: flex; align-items: center; }
+.search-nav-btn:hover { color: #d4d4d4; background: #3c3c3c; }
+.search-nav-btn svg { width: 14px; height: 14px; }
+.search-close-btn { background: none; border: none; color: #888; padding: 2px 4px; border-radius: 2px; cursor: pointer; line-height: 1; display: flex; align-items: center; }
+.search-close-btn:hover { color: #d4d4d4; background: #3c3c3c; }
+.search-close-btn svg { width: 14px; height: 14px; }
+
+</style>
+
+</head>
+
+<body>
+
+
+
+<div id="top-bar">
+
+  <div id="top-left">
+    <button id="btn-sidebar" title="切换侧栏"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M7.95 11.95H39.95"/><path d="M7.95 23.95H39.95"/><path d="M7.95 35.95H39.95"/></svg></button>
+    <span id="status-dot" class="disconnected"></span>
+    <span id="status-text">离线</span>
+  </div>
+
+  <div id="tabs-wrap"><div id="tabs"></div></div>
+
+</div>
+
+
+
+<div id="middle">
+
+<div id="sidebar">
+
+  <div class="side-group">
+    <span class="side-label">会话管理</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:44px;flex-shrink:0;font-size:12px;color:#888">波特率:</span>
+      <select id="baud-select" class="serial-select">
+        <option>9600</option>
+        <option>14400</option>
+        <option>19200</option>
+        <option>28800</option>
+        <option>38400</option>
+        <option>56000</option>
+        <option>57600</option>
+        <option>115200</option>
+        <option>128000</option>
+        <option>230400</option>
+        <option>256000</option>
+        <option>460800</option>
+        <option>921600</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:44px;flex-shrink:0;font-size:12px;color:#888">数据位:</span>
+      <select id="databits-select" class="serial-select">
+        <option>5</option>
+        <option>6</option>
+        <option>7</option>
+        <option selected>8</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:44px;flex-shrink:0;font-size:12px;color:#888">校验位:</span>
+      <select id="parity-select" class="serial-select">
+        <option value="N" selected>无</option>
+        <option value="E">偶</option>
+        <option value="O">奇</option>
+        <option value="M">标记</option>
+        <option value="S">空</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:44px;flex-shrink:0;font-size:12px;color:#888">停止位:</span>
+      <select id="stopbits-select" class="serial-select">
+        <option value="1" selected>1</option>
+        <option value="1.5">1.5</option>
+        <option value="2">2</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:44px;flex-shrink:0;font-size:12px;color:#888">换行符:</span>
+      <select id="terminator-select" class="serial-select">
+        <option value="CRLF" selected>CR+LF (\r\n)</option>
+        <option value="LF">LF (\n)</option>
+        <option value="CR">CR (\r)</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:12px">
+      <label class="side-check"><input type="checkbox" id="chk-dtr" checked><span class="check-box"></span> DTR</label>
+      <label class="side-check"><input type="checkbox" id="chk-rts" checked><span class="check-box"></span> RTS</label>
+    </div>
+  </div>
+
+  <div class="side-group">
+    <span class="side-label">显示</span>
+    <label class="side-check"><input type="checkbox" id="chk-hex"><span class="check-box"></span> HEX 显示</label>
+    <div id="hex-split-group" style="display:none;flex-direction:column;gap:6px">
+      <div style="display:flex;gap:6px">
+        <button id="btn-hex-lr" class="tool-btn" style="flex:1">左右</button>
+        <button id="btn-hex-tb" class="tool-btn" style="flex:1">上下</button>
+      </div>
+    </div>
+    <label class="side-check"><input type="checkbox" id="chk-ts" checked><span class="check-box"></span> 时间戳</label>
+    <label class="side-check"><input type="checkbox" id="chk-flow" checked><span class="check-box"></span> 流向</label>
+    <label class="side-check"><input type="checkbox" id="chk-scroll" checked><span class="check-box"></span> 自动滚屏</label>
+    <label class="side-check"><input type="checkbox" id="chk-nowrap" checked><span class="check-box"></span> 自动换行</label>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:60px;flex-shrink:0;font-size:12px;color:#888">流向符号:</span>
+      <input type="text" id="input-tx-symbol" value="→" placeholder="TX" style="flex:1;min-width:0;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;padding:3px 4px;border-radius:3px;font-size:13px;outline:none;text-align:center">
+      <input type="text" id="input-rx-symbol" value="←" placeholder="RX" style="flex:1;min-width:0;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;padding:3px 4px;border-radius:3px;font-size:13px;outline:none;text-align:center">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:60px;flex-shrink:0;font-size:12px;color:#888">时间精度:</span>
+      <select id="select-ts-precision" style="flex:1;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;padding:3px 6px;border-radius:3px;font-size:13px;outline:none">
+        <option value="ms" selected>毫秒(ms)</option>
+        <option value="s">秒(s)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="side-group">
+    <span class="side-label">发送</span>
+    <label class="side-check"><input type="checkbox" id="chk-hex-send"><span class="check-box"></span> HEX 发送</label>
+    <label class="side-check"><input type="checkbox" id="chk-retain"><span class="check-box"></span> 保留发送内容</label>
+    <input type="file" id="file-picker" style="display:none">
+    <button id="btn-file" class="tool-btn">发送文件</button>
+    <select id="preset-cmds" style="width:100%;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;padding:3px 6px;border-radius:3px;font-size:12px;outline:none">
+      <option value="">预设命令</option>
+        <option value="AT">AT</option>
+        <option value="AT+GMR">AT+GMR</option>
+        <option value="AT+CGMI">AT+CGMI</option>
+        <option value="AT+CGMM">AT+CGMM</option>
+        <option value="AT+CGSN">AT+CGSN</option>
+        <option value="AT+CIMI">AT+CIMI</option>
+        <option value="AT+CSQ">AT+CSQ</option>
+        <option value="AT+CREG?">AT+CREG?</option>
+        <option value="AT+COPS?">AT+COPS?</option>
+        <option value="AT+CGATT?">AT+CGATT?</option>
+        <option value="AT+CGPADDR">AT+CGPADDR</option>
+        <option value="AT+IPR?">AT+IPR?</option>
+        <option value="ATE0">ATE0（关闭回显）</option>
+        <option value="ATE1">ATE1（开启回显）</option>
+        <option value="AT&amp;F">AT&amp;F（恢复出厂）</option>
+        <option value="ATZ">ATZ（软重启）</option>
+      </select>
+    <button id="btn-crc" class="tool-btn">CRC16</button>
+    <div id="auto-row">
+      <input id="auto-interval" type="text" value="1000" title="间隔(ms)">
+      <span style="font-size:12px;color:#888">ms</span>
+      <button id="btn-auto" class="tool-btn">自动发送</button>
+    </div>
+  </div>
+
+  <div class="side-group">
+    <span class="side-label">日志</span>
+    <label class="side-check"><input type="checkbox" id="chk-log" checked><span class="check-box"></span> 日志记录</label>
+  </div>
+
+</div>
+
+<div id="log-area">
+  <div id="log-toolbar">
+    <span style="flex:1"></span>
+    <button id="btn-search" class="toolbar-btn" title="搜索 (Ctrl+F)"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"><path d="M21 38C30.39 38 38 30.39 38 21C38 11.61 30.39 4 21 4C11.61 4 4 11.61 4 21C4 30.39 11.61 38 21 38Z"/><path d="M33.22 33.22L41.71 41.71" stroke-linecap="round"/></svg></button>
+    <button id="btn-clear" class="toolbar-btn" title="清空日志"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"><path d="M9 10V44H39V10H9Z"/><path d="M20 20V33"/><path d="M28 20V33"/><path d="M4 10H44"/><path d="M16 10L19.29 4H28.78L32 10H16Z"/></svg></button>
+    <button id="btn-copy" class="toolbar-btn" title="复制日志"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 12.43V7.81C13 6.26 14.26 5 15.81 5H40.19C41.74 5 43 6.26 43 7.81V32.19C43 33.74 41.74 35 40.19 35H35.52"/><path d="M32.19 13H7.81C6.26 13 5 14.26 5 15.81V40.19C5 41.74 6.26 43 7.81 43H32.19C33.74 43 35 41.74 35 40.19V15.81C35 14.26 33.74 13 32.19 13Z"/></svg></button>
+  </div>
+  <div id="search-bar" class="hidden">
+    <input id="search-input" type="text" placeholder="搜索...">
+    <span id="search-count"></span>
+    <button id="search-prev" class="search-nav-btn" title="上一个 (Shift+Enter)"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 30L25 18L37 30"/></svg></button>
+    <button id="search-next" class="search-nav-btn" title="下一个 (Enter)"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M36 18L24 30L12 18"/></svg></button>
+    <button id="search-close" class="search-close-btn" title="关闭 (Esc)"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8L40 40"/><path d="M8 40L40 8"/></svg></button>
+  </div>
+  <div id="log-wrap"><div id="log" class="log-pane"></div><div id="log-ascii" class="log-pane"></div></div>
+</div>
+
+</div>
+
+
+
+<div id="bottom-bar">
+
+  <div id="status-bar"><span id="status-info">就绪</span><span id="status-signals"></span><span id="status-stats"></span></div>
+
+  <div id="input-row">
+
+    <label>&gt;</label>
+
+    <textarea id="input" rows="1" placeholder="输入后按 Enter 发送…" autofocus></textarea>
+
+  </div>
+
+</div>
+
+
+
+<script>
+
+(function(){
+
+'use strict';
+
+
+
+let ws = null;
+
+let activeSessionId = null;
+
+const sessions = {};
+
+let reconnectTimer = null;
+
+let autoScroll = true;
+
+let hexDisplay = false;
+
+let hexSend = false;
+
+let showTs = true;
+
+let lineNum = 0;
+
+let rxCount = 0;
+
+let txCount = 0;
+let rxBytes = 0;
+let txBytes = 0;
+let rxRate = 0;
+let txRate = 0;
+
+let autoTimer = null;
+
+let autoSending = false;
+let hexSplitMode = 'none';
+let sendHistory = [];
+let historyIdx = -1;
+var _cachedPorts = []; window._cachedPorts = _cachedPorts;
+
+let searchMatches = [];
+let currentMatchIndex = -1;
+let searchOpen = false;
+
+
+
+const el = {
+
+  log:      document.getElementById('log'),
+
+  input:    document.getElementById('input'),
+
+  statusBar: document.getElementById('status-bar'),
+
+  statusInfo: document.getElementById('status-info'),
+
+  statusSignals: document.getElementById('status-signals'),
+
+  statusDot: document.getElementById('status-dot'),
+
+  statusText: document.getElementById('status-text'),
+
+  copyBtn:  document.getElementById('btn-copy'),
+
+  clearBtn: document.getElementById('btn-clear'),
+
+  btnSearch: document.getElementById('btn-search'),
+  searchBar: document.getElementById('search-bar'),
+  searchInput: document.getElementById('search-input'),
+  searchCount: document.getElementById('search-count'),
+  searchPrev: document.getElementById('search-prev'),
+  searchNext: document.getElementById('search-next'),
+  searchClose: document.getElementById('search-close'),
+
+  btnSidebar: document.getElementById('btn-sidebar'),
+
+  tabs:     document.getElementById('tabs'),
+
+  btnTabAdd: null,
+
+  chkHex:   document.getElementById('chk-hex'),
+
+  chkHexSend: document.getElementById('chk-hex-send'),
+
+  chkTs:    document.getElementById('chk-ts'),
+
+  chkScroll: document.getElementById('chk-scroll'),
+
+  chkLog:   document.getElementById('chk-log'),
+  chkFlow:  document.getElementById('chk-flow'),
+  inputTxSymbol: document.getElementById('input-tx-symbol'),
+  inputRxSymbol: document.getElementById('input-rx-symbol'),
+  selectTsPrecision: document.getElementById('select-ts-precision'),
+  chkRetain: document.getElementById('chk-retain'),
+  presetCmds: document.getElementById('preset-cmds'),
+  btnCrc:   document.getElementById('btn-crc'),
+  btnFile:  document.getElementById('btn-file'),
+  btnHexLr: document.getElementById('btn-hex-lr'),
+  btnHexTb: document.getElementById('btn-hex-tb'),
+  hexSplitGroup: document.getElementById('hex-split-group'),
+  chkNowrap: document.getElementById('chk-nowrap'),
+  logAscii: document.getElementById('log-ascii'),
+  statusStats: document.getElementById('status-stats'),
+
+  baudSelect: document.getElementById('baud-select'),
+  databitsSelect: document.getElementById('databits-select'),
+  paritySelect: document.getElementById('parity-select'),
+  stopbitsSelect: document.getElementById('stopbits-select'),
+  terminatorSelect: document.getElementById('terminator-select'),
+  chkDtr: document.getElementById('chk-dtr'),
+  chkRts: document.getElementById('chk-rts'),
+
+  autoInterval: document.getElementById('auto-interval'),
+
+  btnAuto: document.getElementById('btn-auto'),
+
+};
+
+
+
+function findSessionByPort(port) { for(var sid in sessions){if((sessions[sid].port||'').toUpperCase()===port.toUpperCase()) return sid;} return null; }
+
+function getTerminator() {
+  var t = 'CRLF';
+  if (activeSessionId && sessions[activeSessionId] && sessions[activeSessionId].terminator) {
+    t = sessions[activeSessionId].terminator;
+  } else if (el.terminatorSelect.value) {
+    t = el.terminatorSelect.value;
+  }
+  var map = {'CRLF': '\r\n', 'LF': '\n', 'CR': '\r'};
+  return map[t] || '\r\n';
+}
+
+function sanitize(text) {
+  // 仅清除控制字符，保留 \r\n 用于分行/边界（前端不再依赖 \n split 分行）
+  return text.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
+}
+
+
+
+function hexStringToBytes(hexStr) {
+
+  const clean = hexStr.replace(/[\s\r\n]/g, '');
+
+  if (!/^[0-9a-fA-F]*$/.test(clean)) return null;
+
+  const pairs = clean.match(/.{1,2}/g) || [];
+
+  return String.fromCharCode(...pairs.map(h => parseInt(h, 16)));
+
+}
+
+
+
+function hexFromHexStr(hexStr) {
+
+  if (!hexStr) return '';
+
+  const pairs = hexStr.match(/.{1,2}/g) || [];
+
+  const cols = [];
+
+  for (const h of pairs) {
+
+    cols.push(h.toUpperCase());
+
+    if (cols.length % 16 === 0) cols.push('\n');
+
+    else if (cols.length % 8 === 0) cols.push('  ');
+
+    else cols.push(' ');
+
+  }
+
+  return cols.join('').trimEnd();
+
+}
+
+
+
+function setHint(msg) { el.statusInfo.textContent = msg; }
+
+function updateStatusBar() {
+
+  if (activeSessionId && sessions[activeSessionId]) {
+
+    const info = sessions[activeSessionId];
+
+    el.statusInfo.textContent = (info.port || '?').toUpperCase() + ' | ' + (info.baud || '115200') + ' bps | RX: ' + rxCount + ' TX: ' + txCount;
+
+    if (info.signals) {
+
+      el.statusSignals.textContent = 'DTR:' + (info.signals.dtr ? 'ON' : 'OFF') + ' RTS:' + (info.signals.rts ? 'ON' : 'OFF') + ' CTS:' + (info.signals.cts ? 'ON' : 'OFF') + ' DSR:' + (info.signals.dsr ? 'ON' : 'OFF') + ' RI:' + (info.signals.ri ? 'ON' : 'OFF') + ' CD:' + (info.signals.cd ? 'ON' : 'OFF');
+
+    }
+
+    el.statusStats.textContent = 'RX ⭳ ' + rxRate + ' B/s | TX ⭱ ' + txRate + ' B/s';
+
+  } else {
+
+    el.statusInfo.textContent = '就绪';
+
+    el.statusSignals.textContent = '';
+
+    el.statusStats.textContent = '';
+
+  }
+
+}
+
+function setStatus(state, text) {
+
+  el.statusDot.className = state;
+
+  el.statusText.textContent = text;
+
+}
+
+
+
+// ── Log display ──────────────────────────────────
+
+function appendLine(text, cls, tsText, extraText) {
+  if (!text) return;
+  lineNum++;
+  var searchVal = searchOpen ? el.searchInput.value.trim().toLowerCase() : '';
+  _doAppend(el.log, text, cls, tsText, lineNum, searchVal);
+  if (hexSplitMode !== 'none' && el.logAscii) {
+    _doAppend(el.logAscii, extraText || text, cls, tsText, lineNum, searchVal);
+  }
+  if (autoScroll) el.log.scrollTop = el.log.scrollHeight;
+}
+
+function _doAppend(container, text, cls, tsText, num, searchVal) {
+  const div = document.createElement('div');
+  div.className = 'log-line' + (cls ? ' ' + cls : '');
+  const numSpan = document.createElement('span');
+  numSpan.className = 'line-num';
+  numSpan.textContent = num;
+  div.appendChild(numSpan);
+  const contentWrap = document.createElement('span');
+  contentWrap.className = 'line-content';
+  if (tsText) {
+    var tspan = document.createElement('span');
+    tspan.className = 'ts';
+    tspan.textContent = '[' + tsText + ']';
+    contentWrap.appendChild(tspan);
+  }
+  var contentSpan = document.createElement('span');
+  contentSpan.setAttribute('data-raw-data', text);
+  if (searchVal && text.toLowerCase().includes(searchVal)) {
+    contentSpan.innerHTML = highlightText(text, el.searchInput.value.trim());
+  } else {
+    contentSpan.textContent = text;
+  }
+  contentWrap.appendChild(contentSpan);
+  contentWrap.setAttribute('data-raw', text);
+  div.appendChild(contentWrap);
+  container.appendChild(div);
+}
+
+function formatTs(ts) {
+  if (!ts) return null;
+  if (el.selectTsPrecision.value === 's') return ts.split('.')[0];
+  return ts;
+}
+
+function getDirSymbol(kind) {
+  if (kind === 'rx') return el.inputRxSymbol.value || '←';
+  return el.inputTxSymbol.value || '→';
+}
+
+function entryRawText(entry) {
+  if (!el.chkFlow.checked) return entry.raw.replace(/\r?\n$/, '');
+  return getDirSymbol(entry.kind) + ' ' + entry.raw.replace(/\r?\n$/, '');
+}
+
+function entryHexText(entry) {
+  if (!el.chkFlow.checked) return formatHex(entry.hex);
+  return getDirSymbol(entry.kind) + ' ' + formatHex(entry.hex);
+}
+
+function hexBytes(hexStr) {
+  var pairs = hexStr.match(/.{1,2}/g) || [];
+  return pairs.map(function(h) { return h.toUpperCase(); });
+}
+
+function hexToAscii(hexStr) {
+  var bytes = hexBytes(hexStr);
+  var s = '';
+  for (var i = 0; i < bytes.length; i++) {
+    var c = parseInt(bytes[i], 16);
+    s += (c >= 0x20 && c <= 0x7E) ? String.fromCharCode(c) : '.';
+  }
+  return s;
+}
+
+function formatHex(hexStr) {
+  var bytes = hexBytes(hexStr);
+  var cols = [];
+  for (var i = 0; i < bytes.length; i++) {
+    if (i > 0 && i % 16 === 0) cols.push('\n');
+    else if (i > 0 && i % 8 === 0) cols.push('  ');
+    cols.push(bytes[i]);
+    cols.push(' ');
+  }
+  return cols.join('').trimEnd();
+}
+
+function entryDisplayText(entry) {
+  var raw = entry.raw.replace(/\r?\n$/, '');
+  var prefix = el.chkFlow.checked ? getDirSymbol(entry.kind) + ' ' : '';
+
+  if (!hexDisplay) return prefix + raw;
+
+  if (hexSplitMode === 'lr') {
+    var hex = formatHex(entry.hex);
+    var ascii = hexToAscii(entry.hex);
+    return prefix + hex + '  │  ' + ascii;
+  }
+  if (hexSplitMode === 'tb') {
+    var hex = formatHex(entry.hex);
+    var ascii = hexToAscii(entry.hex);
+    return prefix + '\n' + hex + '\n' + ascii;
+  }
+  return prefix + formatHex(entry.hex);
+}
+
+var appendLog = appendLine;
+
+
+
+function clearLog() {
+  el.log.innerHTML = '';
+  if (el.logAscii) el.logAscii.innerHTML = '';
+  lineNum = 0;
+  searchMatches = [];
+  currentMatchIndex = -1;
+  updateSearchCount();
+}
+
+var _syncing = false;
+function _syncScroll(src, dst) {
+  if (_syncing) return;
+  _syncing = true;
+  dst.scrollTop = src.scrollTop;
+  _syncing = false;
+}
+function _onLogScroll() { if (el.logAscii && hexSplitMode !== 'none') _syncScroll(el.log, el.logAscii); }
+function _onAsciiScroll() { if (el.log && hexSplitMode !== 'none') _syncScroll(el.logAscii, el.log); }
+
+
+
+function loadBuffer(entries) {
+
+  clearLog();
+
+  if (!entries) return;
+
+  for (var i = 0; i < entries.length; i++) {
+
+    var entry = entries[i];
+
+    if (!entry) continue;
+
+    var cls = entry.kind === 'rx' ? 'rx' : 'tx';
+    var ts = showTs ? formatTs(entry.ts) : null;
+    if (hexDisplay) {
+      appendLine(entryHexText(entry), cls, ts, entryRawText(entry));
+    } else {
+      appendLine(entryRawText(entry), cls, ts);
+    }
+
+  }
+
+}
+
+
+
+// ── Tabs ─────────────────────────────────────────
+
+function updateTabs() {
+  el.tabs.innerHTML = '';
+  for (const [sid, info] of Object.entries(sessions)) {
+    var div = document.createElement('div');
+    div.className = 'tab' + (sid === activeSessionId ? ' active' : '');
+    div.textContent = (info.port || '?').toUpperCase();
+    var close = document.createElement('span');
+    close.className = 'close';
+    close.textContent = '×';
+    close.setAttribute('data-sid', sid);
+    div.appendChild(close);
+    div.setAttribute('data-sid', sid);
+    div.addEventListener('click', function(e) {
+      if (e.target.classList.contains('close')) return;
+      var s = this.getAttribute('data-sid');
+      if (s && s !== activeSessionId && sessions[s]) {
+        activeSessionId = s;
+        clearLog();
+        sendToServer({type: 'get_buffer', session_id: s});
+        var sinfo = sessions[s];
+        if (sinfo.baud) el.baudSelect.value = String(sinfo.baud);
+        if (sinfo.bytesize) el.databitsSelect.value = String(sinfo.bytesize);
+        if (sinfo.parity) el.paritySelect.value = sinfo.parity;
+        if (sinfo.stopbits) el.stopbitsSelect.value = String(sinfo.stopbits);
+        if (sinfo.terminator) el.terminatorSelect.value = sinfo.terminator;
+        if (sinfo.log_format) {
+          var lf = sinfo.log_format;
+          el.chkTs.checked = lf.timestamp !== false;
+          el.chkFlow.checked = lf.direction !== false;
+          if (document.activeElement !== el.inputTxSymbol && document.activeElement !== el.inputRxSymbol) {
+            var parts = (lf.dir_symbols || '→ ←').split(/\s+/);
+            el.inputTxSymbol.value = parts[1] || '→';
+            el.inputRxSymbol.value = parts[0] || '←';
+          }
+          el.selectTsPrecision.value = lf.ts_precision || 'ms';
+        }
+        if (sinfo.signals) { el.chkDtr.checked = !!sinfo.signals.dtr; el.chkRts.checked = !!sinfo.signals.rts; }
+        updateTabs();
+      }
+    });
+    close.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var s = this.getAttribute('data-sid');
+      var port = (sessions[s] && sessions[s].port) ? sessions[s].port.toUpperCase() : s;
+      if (confirm('确定关闭会话 ' + port + ' 吗？')) {
+        sendToServer({type: 'serial_close', session_id: s});
+      }
+    });
+    el.tabs.appendChild(div);
+  }
+  var addBtn = document.createElement('div');
+  addBtn.className = 'tab-add';
+  addBtn.id = 'btn-tab-add';
+  addBtn.textContent = '+';
+  addBtn.title = '新建会话';
+  addBtn.addEventListener('click', showNewSessionDialog);
+  el.tabs.appendChild(addBtn);
+  if (activeSessionId && sessions[activeSessionId]) {
+    var info = sessions[activeSessionId];
+    if (info.baud) el.baudSelect.value = String(info.baud);
+    if (info.bytesize) el.databitsSelect.value = String(info.bytesize);
+    if (info.parity) el.paritySelect.value = info.parity;
+    if (info.stopbits) el.stopbitsSelect.value = String(info.stopbits);
+    if (info.terminator) el.terminatorSelect.value = info.terminator;
+    if (info.log_format) {
+      var lf = info.log_format;
+      el.chkTs.checked = lf.timestamp !== false;
+      el.chkFlow.checked = lf.direction !== false;
+      if (document.activeElement !== el.inputTxSymbol && document.activeElement !== el.inputRxSymbol) {
+        var parts = (lf.dir_symbols || '→ ←').split(/\s+/);
+        el.inputTxSymbol.value = parts[1] || '→';
+        el.inputRxSymbol.value = parts[0] || '←';
+      }
+      el.selectTsPrecision.value = lf.ts_precision || 'ms';
+    }
+    if (info.signals) { el.chkDtr.checked = !!info.signals.dtr; el.chkRts.checked = !!info.signals.rts; }
+  }
+  updateStatusBar();
+}
+
+
+
+
+// ── WebSocket ────────────────────────────────────
+
+function connect() {
+
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+
+  if (ws) { try { ws.close(); } catch(e) {} ws = null; }
+
+  const port = window.__WS_PORT__ || window.location.port || (window.location.protocol === 'https:' ? 443 : 80);
+
+  const uri = `ws://127.0.0.1:${port}/ws`;
+
+  setStatus('connecting', '连接中…');
+
+  ws = new WebSocket(uri);
+
+  ws.onopen = () => {
+
+    setStatus('connected', '在线');
+
+    sendToServer({type: 'list_sessions'});
+
+    sendToServer({type: 'list_ports'});
+
+  };
+
+  ws.onclose = () => {
+
+    setStatus('disconnected', '离线');
+
+    ws = null;
+
+    reconnectTimer = setTimeout(connect, 2000);
+
+  };
+
+  ws.onerror = () => {};
+
+  ws.onmessage = (ev) => {
+
+    try { handleMessage(JSON.parse(ev.data)); }
+
+    catch(e) { console.warn('WS parse error:', e); }
+
+  };
+
+}
+
+
+
+function sendToServer(data) {
+
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+
+}
+
+
+
+function handleMessage(msg) {
+
+  const t = msg.type;
+
+  if (t === 'rx' || t === 'tx') {
+
+    handleSerialData(msg);
+
+  } else if (t === 'session_list') {
+
+    const serverSids = new Set();
+
+    for (const s of (msg.sessions || [])) {
+
+      serverSids.add(s.session_id);
+
+      if (!sessions[s.session_id]) sessions[s.session_id] = { session_id: s.session_id, port: (s.port || '').toUpperCase(), baud: s.baud || 115200 };
+
+      else if (!sessions[s.session_id].port && s.port) sessions[s.session_id].port = s.port.toUpperCase();
+
+      // Update params from server info
+      if (s.baud) sessions[s.session_id].baud = s.baud;
+      if (s.bytesize) sessions[s.session_id].bytesize = s.bytesize;
+      if (s.parity) sessions[s.session_id].parity = s.parity;
+      if (s.stopbits) sessions[s.session_id].stopbits = s.stopbits;
+      if (s.terminator) sessions[s.session_id].terminator = s.terminator;
+      if (s.log_format) sessions[s.session_id].log_format = s.log_format;
+
+    }
+
+    for (const sid of Object.keys(sessions)) { if (!serverSids.has(sid)) delete sessions[sid]; }
+
+    updateTabs();
+
+    updateStatusBar();
+
+  } else if (t === 'signals') {
+
+    var sigSid = msg.session_id || activeSessionId;
+    if (sigSid && sessions[sigSid]) {
+      sessions[sigSid].signals = msg;
+    }
+
+    // DTR/RTS 复选框跟随当前活跃会话
+    if (activeSessionId && sessions[activeSessionId] && sessions[activeSessionId].signals) {
+      el.chkDtr.checked = !!sessions[activeSessionId].signals.dtr;
+      el.chkRts.checked = !!sessions[activeSessionId].signals.rts;
+    }
+
+    if (activeSessionId && sessions[activeSessionId]) updateStatusBar();
+
+  } else if (t === 'port_list') {
+
+    _cachedPorts = msg.ports || [];
+    var openOverlay = document.querySelector('[data-new-session-overlay]');
+    if (openOverlay) {
+      var sel = openOverlay.querySelector('select');
+      if (sel && sel.value === '') {
+        sel.innerHTML = '<option value="">(选择端口)</option>';
+        for (var pi = 0; pi < _cachedPorts.length; pi++) {
+          var p = _cachedPorts[pi];
+          if (findSessionByPort(p.device)) continue;
+          var o = document.createElement('option'); o.value = p.device; o.textContent = p.device; o.title = (p.description || '') + ' (空闲)';
+          sel.appendChild(o);
+        }
+      }
+    }
+
+  } else if (t === 'buffer_data') {
+
+    if (msg.session_id === activeSessionId) loadBuffer(msg.entries);
+
+  } else if (t === 'serial_open_result') {
+
+    setHint(msg.status === 'ok' ? (msg.message || '') : '打开失败: ' + (msg.error || ''));
+
+    sendToServer({type: 'list_sessions'}); sendToServer({type: 'list_ports'});
+
+  } else if (t === 'serial_update_config_result') {
+
+    if (msg.status === 'ok' && msg.session_id && sessions[msg.session_id]) {
+      sessions[msg.session_id].baud = msg.baud;
+      sessions[msg.session_id].bytesize = msg.bytesize;
+      sessions[msg.session_id].parity = msg.parity;
+      sessions[msg.session_id].stopbits = msg.stopbits;
+      setHint('串口参数已更新');
+      updateStatusBar();
+      sendToServer({type: 'list_sessions'});
+    } else {
+      setHint('参数更新失败: ' + (msg.error || ''));
+    }
+
+  } else if (t === 'log_format_result') {
+    if (msg.status === 'ok' && msg.session_id && sessions[msg.session_id]) {
+      sessions[msg.session_id].log_format = msg.log_format;
+      if (msg.session_id === activeSessionId && msg.log_format) {
+        el.chkTs.checked = msg.log_format.timestamp !== false;
+        el.chkFlow.checked = msg.log_format.direction !== false;
+        if (document.activeElement !== el.inputTxSymbol && document.activeElement !== el.inputRxSymbol) {
+          var parts = (msg.log_format.dir_symbols || '→ ←').split(/\s+/);
+          el.inputTxSymbol.value = parts[1] || '→';
+          el.inputRxSymbol.value = parts[0] || '←';
+        }
+        el.selectTsPrecision.value = msg.log_format.ts_precision || 'ms';
+      }
+      setHint('日志格式已更新');
+    }
+
+  } else if (t === 'serial_close_result') {
+
+    if (msg.status === 'ok') {
+
+      setHint(msg.message || '已关闭');
+
+      if (activeSessionId && msg.session_id === activeSessionId) { activeSessionId = null; updateTabs(); }
+
+    } else { setHint('关闭失败: ' + (msg.error || '')); }
+
+    sendToServer({type: 'list_sessions'}); sendToServer({type: 'list_ports'});
+
+  }
+
+}
+
+
+
+function handleSerialData(msg) {
+
+  var entry = msg.entry;
+
+  if (!entry || !entry.raw) return;
+
+  var sid = msg.session_id || '';
+
+  var port = (msg.port || '').toUpperCase();
+
+  if (!sid) return;
+
+  if (!sessions[sid]) sessions[sid] = { session_id: sid, port: port };
+
+  if (port) sessions[sid].port = port;
+
+  if (msg.type === 'rx') {
+    rxCount++;
+    rxBytes += entry.hex.length / 2;
+  } else {
+    txCount++;
+    txBytes += entry.hex.length / 2;
+  }
+
+  updateStatusBar();
+
+  if (!activeSessionId && Object.keys(sessions).length > 0) {
+
+    activeSessionId = sid;
+    sendToServer({type: 'get_buffer', session_id: sid});
+
+  }
+
+  if (sid === activeSessionId) {
+    var ts = showTs ? formatTs(entry.ts) : null;
+    if (hexDisplay) {
+      appendLine(entryHexText(entry), entry.kind === 'rx' ? 'rx' : 'tx', ts, entryRawText(entry));
+    } else {
+      appendLine(entryRawText(entry), entry.kind === 'rx' ? 'rx' : 'tx', ts);
+    }
+  }
+
+}
+
+
+
+// ── Events ───────────────────────────────────────
+
+// ── Port management event listeners (replaced by tabs/new dialog) ──────
+// (removed: old select change / portSelect change / btnPortAction click)
+
+
+
+hexSplitMode = window.hexSplitMode || 'none'; // 'none' | 'lr' | 'tb'
+
+function applySplitClass() {
+  var wrap = document.getElementById('log-wrap');
+  wrap.classList.toggle('split-lr', hexSplitMode === 'lr');
+  wrap.classList.toggle('split-tb', hexSplitMode === 'tb');
+  if (hexSplitMode !== 'none' && el.logAscii) {
+    el.log.removeEventListener('scroll', _onLogScroll);
+    el.logAscii.removeEventListener('scroll', _onAsciiScroll);
+    el.log.addEventListener('scroll', _onLogScroll);
+    el.logAscii.addEventListener('scroll', _onAsciiScroll);
+  }
+}
+
+function reloadLog() {
+  if (activeSessionId) { clearLog(); sendToServer({type: 'get_buffer', session_id: activeSessionId}); }
+}
+
+// ── Sidebar toggle ──────────────────────────────
+el.btnSidebar.addEventListener('click', function() {
+  document.getElementById('sidebar').style.display = document.getElementById('sidebar').style.display === 'none' ? '' : 'none';
+});
+
+// ── New session dialog ──────────────────────────
+function showNewSessionDialog() {
+  var existing = document.querySelector('[data-new-session-overlay]');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.setAttribute('data-new-session-overlay', '1');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;display:flex;align-items:center;justify-content:center';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#252526;border:1px solid #555;border-radius:6px;padding:20px;min-width:300px;display:flex;flex-direction:column;gap:12px';
+  box.innerHTML = '<span style="font-size:14px;font-weight:bold;color:#d4d4d4">新建会话</span>';
+  var portRow = document.createElement('div');
+  portRow.style.cssText = 'display:flex;align-items:center;gap:8px';
+  portRow.innerHTML = '<span style="width:50px;font-size:12px;color:#888">端口:</span>';
+  var portSel = document.createElement('select');
+  portSel.style.cssText = 'flex:1;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;padding:3px 6px;border-radius:3px;font-size:13px;outline:none';
+  portRow.appendChild(portSel); box.appendChild(portRow);
+  var pn = ['波特率','数据位','校验位','停止位','换行符'];
+  var ps = [el.baudSelect, el.databitsSelect, el.paritySelect, el.stopbitsSelect, el.terminatorSelect];
+  for (var i = 0; i < pn.length; i++) {
+    var r = document.createElement('div'); r.style.cssText = 'display:flex;align-items:center;gap:8px';
+    var c = ps[i].cloneNode(true); c.style.cssText = 'flex:1;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;padding:3px 6px;border-radius:3px;font-size:13px;outline:none';
+    r.innerHTML = '<span style="width:50px;font-size:12px;color:#888">' + pn[i] + ':</span>';
+    r.appendChild(c); box.appendChild(r);
+  }
+  var br = document.createElement('div'); br.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:4px';
+  var cb = document.createElement('button'); cb.textContent='取消'; cb.className='tool-btn'; cb.style.background='#555';
+  var cr = document.createElement('button'); cr.textContent='创建'; cr.className='tool-btn';
+  br.appendChild(cb); br.appendChild(cr); box.appendChild(br);
+  overlay.appendChild(box); document.body.appendChild(overlay);
+  function refreshPortsFromCache() {
+    portSel.innerHTML = '<option value="">(选择端口)</option>';
+    for (var pi = 0; pi < _cachedPorts.length; pi++) {
+      var p = _cachedPorts[pi];
+      if (findSessionByPort(p.device)) continue;
+      var o = document.createElement('option'); o.value = p.device; o.textContent = p.device; o.title = (p.description || '') + ' (空闲)';
+      portSel.appendChild(o);
+    }
+  }
+  refreshPortsFromCache();
+  sendToServer({type: 'list_ports'});
+  cb.onclick = function() { overlay.remove(); };
+  cr.onclick = function() {
+    var port = portSel.value; if (!port) { setHint('请选择端口'); return; }
+    var cl = box.querySelectorAll('select');
+    sendToServer({type:'serial_open',port:port,baud:parseInt(cl[1].value)||115200,bytesize:parseInt(cl[2].value)||8,parity:cl[3].value,stopbits:parseFloat(cl[4].value)||1,terminator:cl[5].value});
+    overlay.remove();
+  };
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+}
+// ── Session params sync ─────────────────────────
+function currentSerialConfig() { return {baud:parseInt(el.baudSelect.value,10)||115200,bytesize:parseInt(el.databitsSelect.value,10)||8,parity:el.paritySelect.value,stopbits:parseFloat(el.stopbitsSelect.value)||1,terminator:el.terminatorSelect.value}; }
+function sendSerialConfig() { if (activeSessionId) sendToServer({type:'serial_update_config',session_id:activeSessionId,...currentSerialConfig()}); }
+el.baudSelect.addEventListener('change', sendSerialConfig);
+el.databitsSelect.addEventListener('change', sendSerialConfig);
+el.paritySelect.addEventListener('change', sendSerialConfig);
+el.stopbitsSelect.addEventListener('change', sendSerialConfig);
+el.terminatorSelect.addEventListener('change', function() {
+  if (activeSessionId && sessions[activeSessionId]) sessions[activeSessionId].terminator = el.terminatorSelect.value;
+  sendSerialConfig();
+});
+
+el.chkHex.addEventListener('change', () => {
+  hexDisplay = el.chkHex.checked;
+  el.hexSplitGroup.style.display = hexDisplay ? 'flex' : 'none';
+  if (!hexDisplay) { hexSplitMode = 'none'; applySplitClass(); }
+  reloadLog();
+});
+
+el.btnHexLr.addEventListener('click', () => {
+  hexSplitMode = hexSplitMode === 'lr' ? 'none' : 'lr';
+  el.btnHexLr.style.background = hexSplitMode === 'lr' ? '#1177bb' : '#0e639c';
+  el.btnHexTb.style.background = '#0e639c';
+  applySplitClass(); reloadLog();
+});
+
+el.btnHexTb.addEventListener('click', () => {
+  hexSplitMode = hexSplitMode === 'tb' ? 'none' : 'tb';
+  el.btnHexTb.style.background = hexSplitMode === 'tb' ? '#1177bb' : '#0e639c';
+  el.btnHexLr.style.background = '#0e639c';
+  applySplitClass(); reloadLog();
+});
+
+el.chkHexSend.addEventListener('change', () => { hexSend = el.chkHexSend.checked; });
+
+el.chkTs.addEventListener('change', () => {
+  showTs = el.chkTs.checked;
+  reloadLog();
+  sendLogFormat();
+});
+
+el.chkScroll.addEventListener('change', () => {
+  autoScroll = el.chkScroll.checked;
+  if (autoScroll) el.log.scrollTop = el.log.scrollHeight;
+});
+
+el.chkNowrap.addEventListener('change', () => {
+  document.getElementById('log-wrap').classList.toggle('no-wrap', !el.chkNowrap.checked);
+});
+
+function sendSignals() { if (activeSessionId) sendToServer({type:'set_signals',session_id:activeSessionId,dtr:el.chkDtr.checked,rts:el.chkRts.checked}); }
+
+el.chkDtr.addEventListener('change', sendSignals);
+el.chkRts.addEventListener('change', sendSignals);
+
+el.chkLog.addEventListener('change', () => {
+
+  sendToServer({type: 'set_logging', enabled: el.chkLog.checked});
+
+});
+
+el.chkFlow.addEventListener('change', () => {
+  reloadLog();
+  sendLogFormat();
+});
+
+function onDirSymbolChange() {
+  if (!el.inputTxSymbol.value.trim()) el.inputTxSymbol.value = '→';
+  if (!el.inputRxSymbol.value.trim()) el.inputRxSymbol.value = '←';
+  reloadLog();
+  sendLogFormat();
+}
+el.inputTxSymbol.addEventListener('change', onDirSymbolChange);
+el.inputRxSymbol.addEventListener('change', onDirSymbolChange);
+
+el.selectTsPrecision.addEventListener('change', () => {
+  reloadLog();
+  sendLogFormat();
+});
+
+function sendLogFormat() {
+  if (activeSessionId) sendToServer({
+    type: 'set_log_format', session_id: activeSessionId,
+    timestamp: el.chkTs.checked,
+    direction: el.chkFlow.checked,
+    dir_symbols: (el.inputRxSymbol.value || '←') + ' ' + (el.inputTxSymbol.value || '→'),
+    ts_precision: el.selectTsPrecision.value || 'ms',
+  });
+}
+
+function highlightText(text, keyword) {
+
+  if (!keyword) return text;
+
+  const idx = text.toLowerCase().indexOf(keyword.toLowerCase());
+
+  if (idx < 0) return text;
+
+  return text.slice(0, idx) + '<mark>' + text.slice(idx, idx + keyword.length) + '</mark>' + highlightText(text.slice(idx + keyword.length), keyword);
+
+}
+
+// ── Search (VSCode-style) ──────────────────────
+
+function openSearch() {
+  searchOpen = true;
+  var toolbarH = document.getElementById('log-toolbar').offsetHeight;
+  el.searchBar.style.top = toolbarH + 'px';
+  el.searchBar.classList.remove('hidden');
+  el.searchInput.focus();
+  el.searchInput.select();
+  if (el.searchInput.value.trim()) {
+    runSearch();
+  }
+}
+
+function closeSearch() {
+  searchOpen = false;
+  el.searchBar.classList.add('hidden');
+  clearSearchHighlights();
+  el.searchInput.value = '';
+  searchMatches = [];
+  currentMatchIndex = -1;
+  updateSearchCount();
+}
+
+function clearSearchHighlights() {
+  for (const child of el.log.children) {
+    const contentEl = child.querySelector('.line-content');
+    if (!contentEl) continue;
+    const contentSpan = contentEl.querySelector('span:last-child') || contentEl;
+    const raw = contentSpan.getAttribute('data-raw-data');
+    if (raw) {
+      contentSpan.innerHTML = raw;
+    }
+    child.style.display = '';
+  }
+}
+
+function runSearch() {
+  const val = el.searchInput.value.trim();
+  const lowerVal = val.toLowerCase();
+
+  clearSearchHighlights();
+  searchMatches = [];
+  currentMatchIndex = -1;
+
+  if (!lowerVal) {
+    el.searchCount.textContent = '';
+    return;
+  }
+
+  for (const child of el.log.children) {
+    const contentEl = child.querySelector('.line-content');
+    if (!contentEl) continue;
+    const contentSpan = contentEl.querySelector('span:last-child') || contentEl;
+    const raw = contentSpan.getAttribute('data-raw-data') || contentSpan.textContent;
+    if (!contentSpan.getAttribute('data-raw-data')) contentSpan.setAttribute('data-raw-data', raw);
+
+    child.style.display = '';
+
+    if (raw.toLowerCase().includes(lowerVal)) {
+      contentSpan.innerHTML = highlightText(raw, val);
+      const markEls = contentSpan.querySelectorAll('mark');
+      searchMatches.push({ lineEl: child, markEls: markEls });
+    }
+  }
+
+  const totalMarks = searchMatches.reduce((sum, m) => sum + m.markEls.length, 0);
+  if (totalMarks > 0) {
+    currentMatchIndex = 0;
+    navigateToMatch(0);
+  }
+
+  updateSearchCount();
+}
+
+function navigateToMatch(globalMarkIndex) {
+  const prevCurrent = el.log.querySelector('mark.current');
+  if (prevCurrent) prevCurrent.classList.remove('current');
+
+  let runningIndex = 0;
+  for (let i = 0; i < searchMatches.length; i++) {
+    const match = searchMatches[i];
+    if (runningIndex + match.markEls.length > globalMarkIndex) {
+      const markIdx = globalMarkIndex - runningIndex;
+      const markEl = match.markEls[markIdx];
+      if (markEl) {
+        markEl.classList.add('current');
+        match.lineEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      break;
+    }
+    runningIndex += match.markEls.length;
+  }
+}
+
+function updateSearchCount() {
+  const totalMarks = searchMatches.reduce((sum, m) => sum + m.markEls.length, 0);
+  if (totalMarks === 0) {
+    el.searchCount.textContent = searchOpen && el.searchInput.value.trim() ? '0/0' : '';
+  } else {
+    el.searchCount.textContent = (currentMatchIndex + 1) + '/' + totalMarks;
+  }
+}
+
+function searchNext() {
+  const totalMarks = searchMatches.reduce((sum, m) => sum + m.markEls.length, 0);
+  if (totalMarks === 0) return;
+  currentMatchIndex = (currentMatchIndex + 1) % totalMarks;
+  navigateToMatch(currentMatchIndex);
+  updateSearchCount();
+}
+
+function searchPrev() {
+  const totalMarks = searchMatches.reduce((sum, m) => sum + m.markEls.length, 0);
+  if (totalMarks === 0) return;
+  currentMatchIndex = (currentMatchIndex - 1 + totalMarks) % totalMarks;
+  navigateToMatch(currentMatchIndex);
+  updateSearchCount();
+}
+
+// ── Preset commands ─────────────────────────────
+el.presetCmds.addEventListener('change', function() {
+  var v = this.value;
+  if (!v) return;
+  el.input.value = v;
+  el.input.focus();
+  this.value = '';
+});
+
+// ── CRC16-Modbus ────────────────────────────────
+function crc16Modbus(data) {
+  var crc = 0xFFFF;
+  for (var i = 0; i < data.length; i++) {
+    crc ^= data[i];
+    for (var j = 0; j < 8; j++) {
+      if (crc & 1) { crc = (crc >> 1) ^ 0xA001; }
+      else { crc >>= 1; }
+    }
+  }
+  return [crc & 0xFF, (crc >> 8) & 0xFF];
+}
+
+el.btnCrc.addEventListener('click', function() {
+  var text = el.input.value;
+  if (!text) { setHint('输入框为空'); return; }
+
+  if (hexSend) {
+    // HEX 模式：解析 hex 字符串 → 字节 → 算 CRC → 追加 hex
+    var clean = text.replace(/\s/g, '');
+    if (!/^[0-9a-fA-F]*$/.test(clean) || clean.length % 2 !== 0) { setHint('HEX 格式错误'); return; }
+    var bytes = [];
+    for (var i = 0; i < clean.length; i += 2) {
+      bytes.push(parseInt(clean.substr(i, 2), 16));
+    }
+    var crc = crc16Modbus(bytes);
+    var crcHex = crc[0].toString(16).padStart(2, '0').toUpperCase() + crc[1].toString(16).padStart(2, '0').toUpperCase();
+    el.input.value = text.replace(/\s+$/, '') + ' ' + crcHex.substr(0,2) + ' ' + crcHex.substr(2,2);
+    setHint('CRC16: ' + crcHex.substr(0,2) + ' ' + crcHex.substr(2,2));
+  } else {
+    // 文本模式：算 CRC 并以 [XXXX] 形式追加
+    var bytes = [];
+    for (var i = 0; i < text.length; i++) {
+      bytes.push(text.charCodeAt(i) & 0xFF);
+    }
+    var crc = crc16Modbus(bytes);
+    var crcStr = crc[0].toString(16).padStart(2, '0').toUpperCase() + crc[1].toString(16).padStart(2, '0').toUpperCase();
+    el.input.value = text + ' [' + crcStr + ']';
+    setHint('CRC16: ' + crcStr);
+  }
+  autoResize();
+  el.input.focus();
+});
+
+// ── Send file ───────────────────────────────────
+el.btnFile.addEventListener('click', function() {
+  document.getElementById('file-picker').click();
+});
+document.getElementById('file-picker').addEventListener('change', function() {
+  if (!this.files || !this.files[0]) return;
+  if (!activeSessionId || !ws || ws.readyState !== WebSocket.OPEN) { setHint('无活跃 session'); return; }
+  var file = this.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var content = e.target.result;
+    sendToServer({type: 'tx', session_id: activeSessionId, raw: content + getTerminator()});
+    setHint('已发送文件: ' + file.name + ' (' + content.length + ' bytes)');
+  };
+  reader.readAsText(file);  // 文本模式发送
+  this.value = '';
+});
+
+// ── Textarea auto-resize ────────────────────────
+function autoResize() {
+  el.input.style.height = 'auto';
+  el.input.style.height = Math.min(el.input.scrollHeight, 95) + 'px';
+}
+
+el.input.addEventListener('input', autoResize);
+el.input.addEventListener('cut', autoResize);
+el.input.addEventListener('paste', function() { setTimeout(autoResize, 10); });
+
+el.input.addEventListener('keydown', (e) => {
+
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const text = el.input.value.replace(/[\r\n]+$/, '');
+    if (!text) return;
+    if (!activeSessionId || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+    sendHistory.push(text);
+    historyIdx = sendHistory.length;
+
+    if (hexSend) {
+      if (!/^[0-9a-fA-F\s]*$/.test(text) || text.trim() === '') { setHint('HEX 格式错误'); return; }
+      sendToServer({type: 'tx', session_id: activeSessionId, raw: text, hex: true});
+    } else {
+      sendToServer({type: 'tx', session_id: activeSessionId, raw: text + getTerminator()});
+    }
+
+    if (!el.chkRetain.checked) {
+      el.input.value = '';
+      autoResize();
+    }
+    return;
+  }
+
+  if (e.key === 'ArrowUp' && sendHistory.length > 0) {
+    e.preventDefault();
+    if (historyIdx > 0) historyIdx--;
+    el.input.value = sendHistory[historyIdx];
+    autoResize();
+    return;
+  }
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (historyIdx < sendHistory.length - 1) {
+      historyIdx++;
+      el.input.value = sendHistory[historyIdx];
+    } else {
+      historyIdx = sendHistory.length;
+      el.input.value = '';
+    }
+    autoResize();
+    return;
+  }
+
+});
+
+document.addEventListener('keydown', (e) => {
+
+  if (e.ctrlKey && e.key === 'l') { e.preventDefault(); copyLog(); }
+
+});
+
+function copyLog() {
+
+  const lines = [];
+
+  for (const child of el.log.children) {
+    const contentEl = child.querySelector('.line-content');
+    if (!contentEl) { lines.push(child.textContent); continue; }
+    // 复制日志区实际显示的内容（与显示设置一致）
+    lines.push(contentEl.textContent);
+  }
+
+  const text = lines.join('\n');
+
+  if (!text) { setHint('日志为空'); return; }
+
+  navigator.clipboard.writeText(text).then(() => setHint('已复制到剪贴板'), () => setHint('复制失败'));
+
+}
+
+el.copyBtn.addEventListener('click', copyLog);
+
+el.clearBtn.addEventListener('click', clearLog);
+
+// ── Search events ──────────────────────────────
+el.btnSearch.addEventListener('click', openSearch);
+el.searchClose.addEventListener('click', closeSearch);
+el.searchInput.addEventListener('input', runSearch);
+el.searchNext.addEventListener('click', searchNext);
+el.searchPrev.addEventListener('click', searchPrev);
+el.searchInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (e.shiftKey) searchPrev(); else searchNext();
+  }
+  if (e.key === 'Escape') {
+    closeSearch();
+  }
+});
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.key === 'f') {
+    e.preventDefault();
+    openSearch();
+  }
+});
+
+
+
+el.btnAuto.addEventListener('click', function() {
+
+  if (autoSending) {
+
+    autoSending = false;
+
+    clearInterval(autoTimer);
+
+    el.btnAuto.textContent = '自动发送';
+
+    el.btnAuto.className = 'tool-btn';
+
+    setHint('自动发送已停止');
+
+    return;
+
+  }
+
+  var ms = parseInt(el.autoInterval.value, 10);
+
+  if (isNaN(ms) || ms < 50) { setHint('间隔至少 50ms'); return; }
+
+  if (!activeSessionId || !ws || ws.readyState !== WebSocket.OPEN) { setHint('无活跃 session'); return; }
+
+  autoSending = true;
+
+  el.btnAuto.textContent = '停止';
+
+  el.btnAuto.className = 'tool-btn active';
+
+  setHint('自动发送已启动' + ms + '毫秒');
+
+  autoTimer = setInterval(function() {
+
+    if (!activeSessionId || !ws || ws.readyState !== WebSocket.OPEN) {
+
+      autoSending = false;
+
+      clearInterval(autoTimer);
+
+      el.btnAuto.textContent = '自动发送';
+
+      el.btnAuto.className = 'tool-btn';
+
+      return;
+
+    }
+
+    sendToServer({type: 'tx', session_id: activeSessionId, raw: el.input.value + getTerminator()});
+
+  }, ms);
+
+});
+
+
+
+setInterval(() => { sendToServer({type: 'list_sessions'}); sendToServer({type: 'list_ports'}); }, 3000);
+
+setInterval(() => {
+  if (activeSessionId) sendToServer({type: 'get_signals', session_id: activeSessionId});
+}, 2000);
+
+setInterval(function() {
+  rxRate = rxBytes;
+  txRate = txBytes;
+  rxBytes = 0;
+  txBytes = 0;
+  updateStatusBar();
+}, 1000);
+
+connect();
+
+setHint('输入文字按 Enter 发送');
+
+
+
+})();
+
+</script>
+
+</body>
+
+</html>
+

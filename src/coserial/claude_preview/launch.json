@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "coserial-web-ui",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "src/coserial/claude_preview/preview_proxy.py"],
+      "port": 37230,
+      "autoPort": true
+    }
+  ]
+}
