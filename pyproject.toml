@@ -9,13 +9,13 @@ dependencies = [
     "websockets>=12.0",
     "pywin32>=312",
     "aiohttp>=3.9",
-    # tkinter is part of the Python standard library
 ]
 
 [project.scripts]
 coserial = "coserial.__main__:main"
 coserial-server = "coserial.server:main"
 coserial-client = "coserial.client:main"
+coserial-preview = "coserial.embedded_web_ui.claude_preview.preview_proxy:main"
 
 [build-system]
 requires = ["hatchling"]

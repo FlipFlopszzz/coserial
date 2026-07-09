@@ -49,6 +49,29 @@ cd coserial
 uv sync
 ```
 
+Or with pip:
+
+```bash
+pip install -e .
+```
+
+### Register with Claude Code
+
+After installation, register coserial as an MCP server so Claude Code can use it:
+
+```bash
+# Global (recommended — available in all projects)
+uv run coserial init --global
+
+# Or project-level (only in a specific directory)
+cd /path/to/your-project
+uv run coserial init
+```
+
+`init --global` uses `claude mcp add --scope user` to write to `~/.claude.json`.
+
+`init` (project-level) creates `.mcp.json` + `.claude/launch.json` in the target directory, enabling both MCP tools and Claude Desktop Preview.
+
 ### Launch
 
 ```bash
@@ -63,6 +86,18 @@ uv run coserial list
 
 # Start server only (headless)
 uv run coserial-server
+```
+
+### Use in Claude Code
+
+Once registered, call MCP tools directly in any Claude Code session:
+
+```
+server()                          → Start/discover server process
+open_session(port="COM20")        → Open serial port
+preview(port=37210)               → Get Preview URL
+preview_start("coserial-web-ui")  → Open Web UI in Claude Desktop
+command(session_id, "AT+GMR", expect="OK", newline=True)  → Send & wait
 ```
 
 ## MCP Tools

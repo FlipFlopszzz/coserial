@@ -49,6 +49,29 @@ cd coserial
 uv sync
 ```
 
+或使用 pip：
+
+```bash
+pip install -e .
+```
+
+### 注册到 Claude Code
+
+安装后，将 coserial 注册为 MCP 服务器，Claude Code 即可使用：
+
+```bash
+# 全局注册（推荐 — 所有项目可用）
+uv run coserial init --global
+
+# 或项目级注册（仅在指定目录生效）
+cd /path/to/your-project
+uv run coserial init
+```
+
+`init --global` 通过 `claude mcp add --scope user` 写入 `~/.claude.json`。
+
+`init`（项目级）在目标目录创建 `.mcp.json` + `.claude/launch.json`，同时启用 MCP 工具和 Claude Desktop Preview。
+
 ### 启动
 
 ```bash
@@ -63,6 +86,18 @@ uv run coserial list
 
 # 只启动 server（headless）
 uv run coserial-server
+```
+
+### 在 Claude Code 中使用
+
+注册后，在任意 Claude Code 会话中直接调用 MCP 工具：
+
+```
+server()                          → 启动/发现 server 进程
+open_session(port="COM20")        → 打开串口
+preview(port=37210)               → 获取 Preview URL
+preview_start("coserial-web-ui")  → 在 Claude Desktop 内嵌查看 Web UI
+command(session_id, "AT+GMR", expect="OK", newline=True)  → 发命令等响应
 ```
 
 ## MCP 工具

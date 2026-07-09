@@ -11,7 +11,7 @@ import socket
 import sys
 from pathlib import Path
 
-_WEB_UI = Path(__file__).resolve().parent.parent / "web_ui" / "index.html"
+_WEB_UI = Path(__file__).resolve().parent.parent.parent / "web_ui" / "index.html"
 
 
 def _scan_server() -> int | None:
@@ -71,7 +71,9 @@ async def _background_scan():
     print("... server not found", flush=True)
 
 
-async def _forward(cr: asyncio.StreamReader, cw: asyncio.StreamWriter, real_port: int, req: bytes):
+async def _forward(
+    cr: asyncio.StreamReader, cw: asyncio.StreamWriter, real_port: int, req: bytes
+):
     """将请求转发到真实 server 并回传响应。"""
     rr, rw = await asyncio.open_connection("127.0.0.1", real_port)
     rw.write(req)
@@ -134,7 +136,9 @@ async def handle(cr: asyncio.StreamReader, cw: asyncio.StreamWriter):
 
         # ── HEAD / → 立即 200（Preview 健康检查） ──
         if method == b"HEAD" and path == b"/":
-            cw.write(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            cw.write(
+                b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            )
             await cw.drain()
             return
 
@@ -156,7 +160,11 @@ async def handle(cr: asyncio.StreamReader, cw: asyncio.StreamWriter):
             tag = b"</title>"
             inject = b'<script>window.__WS_PORT__="%d";</script>\n' % rp
             idx = html.find(tag)
-            body = html[: idx + len(tag)] + inject + html[idx + len(tag) :] if idx >= 0 else html
+            body = (
+                html[: idx + len(tag)] + inject + html[idx + len(tag) :]
+                if idx >= 0
+                else html
+            )
             hdrs = (
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Type: text/html; charset=utf-8\r\n"
@@ -180,7 +188,7 @@ async def handle(cr: asyncio.StreamReader, cw: asyncio.StreamWriter):
             pass
 
 
-async def main():
+async def _main():
     listen_port = int(os.environ.get("PORT", 37230))
 
     server = await asyncio.start_server(handle, "127.0.0.1", listen_port)
@@ -192,5 +200,10 @@ async def main():
         await server.serve_forever()
 
 
+def main():
+    """同步入口，供 console script (coserial-preview) 调用。"""
+    asyncio.run(_main())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

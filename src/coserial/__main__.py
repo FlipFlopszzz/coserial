@@ -4,11 +4,44 @@ Usage:
     uv run coserial                Start server + Web UI (manual debugging)
     uv run coserial COM20          Reuse or create session on COM20
     uv run coserial list            List all active sessions and exit
+    uv run coserial init [dir]      Create .mcp.json + .claude/launch.json in target dir
+    uv run coserial init --global   Add coserial MCP to ~/.claude.json (all projects)
+    uv run coserial -h              Show this help
+
+Other entry points:
+    uv run coserial-server          Start server only (headless)
+    uv run coserial-client          MCP stdio client (called by Claude Desktop)
+    uv run coserial-preview         Preview reverse proxy (called by launch.json)
 """
 import json
 import sys
 import urllib.error
 import urllib.request
+
+
+HELP_TEXT = """\
+coserial - Collaborative Serial Debug Bridge
+
+Usage:
+  coserial                Start server + Web UI (manual debugging)
+  coserial COMx           Start and auto-connect to COMx
+  coserial list            List all active sessions
+  coserial init [dir]      Create .mcp.json + .claude/launch.json in target dir
+  coserial init --global   Add coserial MCP to ~/.claude.json (all projects)
+  coserial -h / --help     Show this help
+
+Other entry points:
+  coserial-server          Start server only (headless)
+  coserial-client          MCP stdio client (called by Claude Desktop)
+  coserial-preview         Preview reverse proxy (called by launch.json)
+
+Examples:
+  uv run coserial                    # Start server + open Web UI
+  uv run coserial COM3               # Start + auto-connect COM3
+  uv run coserial list               # Show active sessions
+  uv run coserial init --global      # Register MCP for all projects
+  uv run coserial init ./my-project  # Register MCP for one project
+"""
 
 
 def _list_sessions():
@@ -52,9 +85,33 @@ def _list_sessions():
     return 0
 
 
+def _init(target_dir: str | None = None, global_scope: bool = False):
+    """创建 MCP + Preview 配置文件。"""
+    from coserial.mcp_config_init import do_init
+
+    return do_init(target_dir, global_scope=global_scope)
+
+
 def main():
-    if "list" in sys.argv[1:]:
+    args = sys.argv[1:]
+
+    if "-h" in args or "--help" in args:
+        print(HELP_TEXT, flush=True)
+        sys.exit(0)
+
+    if "list" in args:
         sys.exit(_list_sessions())
+
+    if "init" in args:
+        idx = args.index("init")
+        global_scope = "--global" in args[idx + 1:]
+        target = None
+        # 取 init 后第一个非 flag 参数作为目标目录
+        for a in args[idx + 1:]:
+            if not a.startswith("-"):
+                target = a
+                break
+        sys.exit(_init(target, global_scope=global_scope))
 
     # Bare COM port → reuse or create session
     new_port = None
