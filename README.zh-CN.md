@@ -63,9 +63,8 @@ pip install -e .
 # 全局注册（推荐 — 所有项目可用）
 uv run coserial init --global
 
-# 或项目级注册（仅在指定目录生效）
-cd /path/to/your-project
-uv run coserial init
+# 或项目级注册（在目标目录创建 .mcp.json + .claude/launch.json）
+uv run coserial init /path/to/your-project
 ```
 
 `init --global` 通过 `claude mcp add --scope user` 写入 `~/.claude.json`。

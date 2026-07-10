@@ -63,9 +63,8 @@ After installation, register coserial as an MCP server so Claude Code can use it
 # Global (recommended — available in all projects)
 uv run coserial init --global
 
-# Or project-level (only in a specific directory)
-cd /path/to/your-project
-uv run coserial init
+# Or project-level (creates .mcp.json + .claude/launch.json in target directory)
+uv run coserial init /path/to/your-project
 ```
 
 `init --global` uses `claude mcp add --scope user` to write to `~/.claude.json`.
