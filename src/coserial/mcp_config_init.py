@@ -51,15 +51,16 @@ def _generate_mcp_json(cwd: str | None) -> dict:
 def _generate_launch_json(cwd: str | None = None) -> dict:
     """生成 .claude/launch.json 内容。
 
-    开发模式：uv run coserial-preview + cwd
+    开发模式：uv --directory <path> run coserial-preview
     安装模式：直接 coserial-preview
+
+    cwd 字段只能用相对路径，所以改用 --directory 参数。
     """
     if cwd:
         config = {
             "name": "coserial-web-ui",
             "runtimeExecutable": "uv",
-            "runtimeArgs": ["run", "coserial-preview"],
-            "cwd": cwd,
+            "runtimeArgs": ["run", "--directory", cwd, "coserial-preview"],
         }
     else:
         config = {
