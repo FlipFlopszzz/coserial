@@ -60,16 +60,16 @@ pip install -e .
 安装后，将 coserial 注册为 MCP 服务器，Claude Code 即可使用：
 
 ```bash
-# 全局注册（推荐）— Desktop 和 CLI 都可用，所有项目生效
+# 全局注册（推荐）— 所有项目可用
 uv run coserial init --global
 
-# 项目级注册 — 仅 CLI 可用，创建 .mcp.json + .claude/launch.json
+# 项目级注册 — 在目标目录创建 .mcp.json + .claude/launch.json
 uv run coserial init /path/to/your-project
 ```
 
-`init --global` 通过 `claude mcp add --scope user` 写入 `~/.claude.json`，Desktop 和 CLI 均能读取。
+`init --global` 通过 `claude mcp add --scope user` 写入 `~/.claude.json`。
 
-`init`（项目级）在目标目录创建 `.mcp.json` + `.claude/launch.json`。注意：**Claude Desktop 只认全局配置**（`~/.claude.json`），项目级 `.mcp.json` 仅对 CLI 生效。
+`init`（项目级）在目标目录创建 `.mcp.json` + `.claude/launch.json`，同时启用 MCP 工具和 Claude Desktop Preview。
 
 ### 启动
 
