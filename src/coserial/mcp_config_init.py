@@ -13,6 +13,14 @@ import subprocess
 from pathlib import Path
 
 
+def _find_uv() -> str | None:
+    """返回 uv 的绝对路径，确保 Claude Desktop（GUI）也能找到它。"""
+    uv = shutil.which("uv")
+    if uv:
+        return str(Path(uv).resolve())
+    return None
+
+
 def _coserial_root() -> Path:
     """返回 coserial 项目根目录（包含 pyproject.toml 的目录）。
 
@@ -28,15 +36,15 @@ def _coserial_root() -> Path:
     return None
 
 
-def _generate_mcp_json(cwd: str | None) -> dict:
+def _generate_mcp_json(cwd: str | None, uv_path: str | None = None) -> dict:
     """生成 .mcp.json 内容。
 
-    开发模式（cwd 不为空）：uv run coserial-client + cwd
+    开发模式（cwd 不为空）：绝对 uv 路径 + coserial-client + cwd
     安装模式（cwd 为空）：直接 coserial-client（已在 PATH）
     """
     if cwd:
         entry: dict = {
-            "command": "uv",
+            "command": uv_path or "uv",
             "args": ["run", "coserial-client"],
             "cwd": cwd,
         }
@@ -47,17 +55,18 @@ def _generate_mcp_json(cwd: str | None) -> dict:
     return {"mcpServers": {"coserial": entry}}
 
 
-def _generate_launch_json(cwd: str | None = None) -> dict:
+def _generate_launch_json(cwd: str | None = None, uv_path: str | None = None) -> dict:
     """生成 .claude/launch.json 内容。
 
-    开发模式：uv run coserial-preview
+    开发模式：绝对 uv 路径 + coserial-preview + cwd
     安装模式：直接 coserial-preview
     """
     if cwd:
         config = {
             "name": "coserial-web-ui",
-            "runtimeExecutable": "uv",
+            "runtimeExecutable": uv_path or "uv",
             "runtimeArgs": ["run", "coserial-preview"],
+            "cwd": cwd,
         }
     else:
         config = {
@@ -120,6 +129,7 @@ def _do_global() -> int:
         return 1
 
     root = _coserial_root()
+    uv_path = _find_uv()
     if root:
         # 开发模式：用 --directory 让 uv 找到 pyproject.toml
         cmd = [
@@ -127,7 +137,7 @@ def _do_global() -> int:
             "--scope", "user",
             "coserial",
             "--",
-            "uv", "run", "--directory", str(root), "coserial-client",
+            uv_path or "uv", "run", "--directory", str(root), "coserial-client",
         ]
     else:
         # 安装模式：coserial-client 直接在 PATH
@@ -190,6 +200,7 @@ def do_init(target_dir: str | None = None, global_scope: bool = False) -> int:
     # 解析 coserial 项目根路径
     root = _coserial_root()
     cwd = str(root) if root else None
+    uv_path = _find_uv()
 
     mcp_path = target / ".mcp.json"
     launch_path = target / ".claude" / "launch.json"
@@ -197,7 +208,7 @@ def do_init(target_dir: str | None = None, global_scope: bool = False) -> int:
     warnings = 0
 
     # -- .mcp.json --
-    mcp_new = _generate_mcp_json(cwd)
+    mcp_new = _generate_mcp_json(cwd, uv_path)
     if mcp_path.exists():
         existing = _read_json(mcp_path)
         if existing is None:
@@ -215,7 +226,7 @@ def do_init(target_dir: str | None = None, global_scope: bool = False) -> int:
         print(f"  [OK]   {mcp_path.name} -- created", flush=True)
 
     # -- .claude/launch.json --
-    launch_new = _generate_launch_json(cwd)
+    launch_new = _generate_launch_json(cwd, uv_path)
     if launch_path.exists():
         existing = _read_json(launch_path)
         if existing is None:

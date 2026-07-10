@@ -60,16 +60,16 @@ pip install -e .
 After installation, register coserial as an MCP server so Claude Code can use it:
 
 ```bash
-# Global (recommended — available in all projects)
+# Global (recommended) — works in both Desktop & CLI, all projects
 uv run coserial init --global
 
-# Or project-level (creates .mcp.json + .claude/launch.json in target directory)
+# Project-level — CLI only, creates .mcp.json + .claude/launch.json
 uv run coserial init /path/to/your-project
 ```
 
-`init --global` uses `claude mcp add --scope user` to write to `~/.claude.json`.
+`init --global` writes to `~/.claude.json` via `claude mcp add --scope user`, available everywhere.
 
-`init` (project-level) creates `.mcp.json` + `.claude/launch.json` in the target directory, enabling both MCP tools and Claude Desktop Preview.
+`init` (project-level) writes to `.mcp.json` + `.claude/launch.json` in the target directory. Note: **Claude Desktop only reads global config** (`~/.claude.json`); project-level `.mcp.json` is CLI-only.
 
 ### Launch
 
